@@ -107,7 +107,7 @@ def is_valid_quotation(text: str) -> bool:
 
 def harvest_brainyquote(
     topics: List[str] = None,
-    output_file: str = "brainyquote.json"
+    output_file: str = "data/brainyquote.json"
 ) -> List[Dict]:
     """
     Сбор цитат с BrainyQuote.

@@ -500,8 +500,8 @@ def extract_quotes_from_text(text: str) -> List[Dict]:
 
 
 def harvest_doc_files(
-    folder_path: str = ".",
-    output_file: str = "doc_files.json"
+    folder_path: str = "data",
+    output_file: str = "data/doc_files.json"
 ) -> List[Dict]:
     """
     Сбор цитат из doc/docx файлов, начинающихся с "aph".

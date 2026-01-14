@@ -47,7 +47,7 @@ class HarvestPipeline:
         skip_merge: bool = False,
         skip_import: bool = False,
         clear_db: bool = False,
-        harvest_pattern: str = "harvest_*.py",
+        harvest_pattern: str = "load/harvest_*.py",
         stats_only: bool = False
     ):
         """
@@ -199,13 +199,16 @@ class HarvestPipeline:
 
         try:
             # Запускаем скрипт с перехватом вывода
+            # Устанавливаем рабочую директорию на корень проекта
+            script_dir = os.path.dirname(os.path.abspath(__file__)) or '.'
             result = subprocess.run(
                 [sys.executable, script_path],
                 capture_output=True,
                 text=True,
                 timeout=3600,  # Максимум 1 час на скрипт
                 encoding='utf-8',
-                errors='replace'
+                errors='replace',
+                cwd=script_dir
             )
 
             # Объединяем stdout и stderr для анализа
@@ -341,16 +344,18 @@ class HarvestPipeline:
         try:
             # Исключаем итоговые файлы из поиска
             exclude_files = [
+                "data/ALL_QUOTES.json",
                 "ALL_QUOTES.json",
+                "data/ALL_QUOTES.txt",
                 "ALL_QUOTES.txt",
                 "harvest_pipeline.log"
             ]
 
             quotes = merge_quotes(
-                input_pattern="*.json",
+                input_pattern="data/*.json",
                 exclude_files=exclude_files,
-                output_json="ALL_QUOTES.json",
-                output_txt="ALL_QUOTES.txt"
+                output_json="data/ALL_QUOTES.json",
+                output_txt="data/ALL_QUOTES.txt"
             )
 
             self.stats["merge"]["output_quotes"] = len(quotes)

@@ -1,6 +1,6 @@
 """
-Сбор цитат с Anecdot.ru/aphorizm (русский).
-Веб-скрапинг: https://anecdot.ru/aphorizm/
+Сбор цитат с Citaty.net (русский).
+Веб-скрапинг: https://ru.citaty.net
 """
 
 import requests
@@ -18,13 +18,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://anecdot.ru/aphorizm"
-# Альтернативные URL на случай недоступности основного
-ALTERNATIVE_URLS = [
-    "http://anecdot.ru/aphorizm",  # HTTP вместо HTTPS
-    "https://www.anecdot.ru/aphorizm",  # С www
-    "http://www.anecdot.ru/aphorizm",  # HTTP с www
-]
+BASE_URL = "https://ru.citaty.net"
 
 
 def is_valid_quotation(text: str) -> bool:
@@ -129,12 +123,12 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def harvest_anecdot_ru(
+def harvest_citaty_net(
     max_pages: int = 50,
-    output_file: str = "anecdot_ru.json"
+    output_file: str = "data/citaty_net.json"
 ) -> List[Dict]:
     """
-    Сбор цитат с Anecdot.ru/aphorizm.
+    Сбор цитат с Citaty.net.
 
     Args:
         max_pages: Максимальное количество страниц
@@ -145,7 +139,7 @@ def harvest_anecdot_ru(
     """
     quotes = []
 
-    logger.info(f"Starting Anecdot.ru harvest (max pages: {max_pages})...")
+    logger.info(f"Starting Citaty.net harvest (max pages: {max_pages})...")
     logger.warning("IMPORTANT: Using 5 second delay between requests!")
 
     headers = {
@@ -154,49 +148,15 @@ def harvest_anecdot_ru(
                      "Chrome/91.0.4472.124 Safari/537.36"
     }
 
-    # Сначала проверяем доступность сайта
-    logger.info("Checking site availability...")
-    site_available = False
-    working_base_url = BASE_URL
-    
-    for test_url in [BASE_URL] + ALTERNATIVE_URLS:
-        try:
-            test_response = requests.get(
-                test_url, headers=headers, timeout=10, verify=False
-            )
-            if test_response.status_code == 200:
-                site_available = True
-                working_base_url = test_url
-                logger.info(f"Site is available at: {test_url}")
-                break
-        except Exception:
-            continue
-    
-    if not site_available:
-        logger.error(
-            "Anecdot.ru/aphorizm is not accessible. Possible reasons:\n"
-            "  1. Site is down or blocked\n"
-            "  2. Network connectivity issues\n"
-            "  3. Firewall/proxy blocking access\n"
-            "  4. Site may have changed URL structure\n"
-            "\n"
-            "Skipping this source. Try again later or use other sources."
-        )
-        # Сохраняем пустой файл
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
-        logger.info(f"Saved empty file: {output_file}")
-        return []
-
     try:
-        with tqdm(total=max_pages, desc="Harvesting Anecdot.ru") as pbar:
+        with tqdm(total=max_pages, desc="Harvesting Citaty.net") as pbar:
             for page in range(1, max_pages + 1):
                 try:
                     # Пробуем разные варианты URL
                     url_patterns = [
-                        f'{working_base_url}/?page={page}',
-                        f'{working_base_url}/page/{page}/',
-                        f'{working_base_url}/?p={page}',
+                        f'{BASE_URL}/tsitaty/?page={page}',
+                        f'{BASE_URL}/tsitaty/page/{page}/',
+                        f'{BASE_URL}/?page={page}',
                     ]
 
                     success = False
@@ -228,8 +188,8 @@ def harvest_anecdot_ru(
 
                             # Ищем цитаты
                             quote_elements = soup.find_all(
-                                ['div', 'p', 'blockquote', 'span'],
-                                class_=re.compile(r'quote|text|aphorism|aphorizm|citata')
+                                ['div', 'p', 'blockquote'],
+                                class_=re.compile(r'quote|text')
                             )
                             if not quote_elements:
                                 quote_elements = soup.find_all('blockquote')
@@ -245,13 +205,7 @@ def harvest_anecdot_ru(
                             continue
 
                     if not success:
-                        logger.warning(
-                            f"No quotes found on page {page}\n"
-                            "  Possible reasons:\n"
-                            "  1. Site structure changed\n"
-                            "  2. Site is down or blocked\n"
-                            "  3. Different URL pattern needed"
-                        )
+                        logger.warning(f"No quotes found on page {page}")
                         break
 
                     # Обрабатываем найденные цитаты
@@ -263,10 +217,17 @@ def harvest_anecdot_ru(
                             continue
 
                         if len(text) >= 20 and is_valid_quotation(text):
+                            # Пробуем извлечь автора
+                            author = None
+                            author_elem = elem.find_next(['span', 'div', 'p'],
+                                                         class_=re.compile(r'author'))
+                            if author_elem:
+                                author = clean_text(author_elem.get_text())
+
                             quotes.append({
                                 "text": text,
-                                "author": None,
-                                "source": "anecdot_ru",
+                                "author": author,
+                                "source": "citaty_net",
                                 "lang": "ru"
                             })
 
@@ -285,7 +246,7 @@ def harvest_anecdot_ru(
                     continue
 
     except Exception as e:
-        logger.error(f"Error in harvest_anecdot_ru: {e}")
+        logger.error(f"Error in harvest_citaty_net: {e}")
 
     # Сохраняем в файл
     if quotes:
@@ -298,4 +259,4 @@ def harvest_anecdot_ru(
 
 if __name__ == "__main__":
     # РЕКОМЕНДУЕТСЯ НИЗКОЕ КОЛИЧЕСТВО СТРАНИЦ
-    harvest_anecdot_ru(max_pages=20)
+    harvest_citaty_net(max_pages=20)

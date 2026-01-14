@@ -129,7 +129,7 @@ def clean_text(text: str) -> str:
 
 def harvest_wikiquote_ru(
     authors: List[str] = None,
-    output_file: str = "wikiquote_ru.json"
+    output_file: str = "data/wikiquote_ru.json"
 ) -> List[Dict]:
     """
     Сбор цитат с Wikiquote (русский).

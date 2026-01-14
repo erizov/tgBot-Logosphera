@@ -2,6 +2,18 @@
 
 Этот набор скриптов позволяет собирать английские и русские цитаты из различных источников, объединять их, дедуплицировать и импортировать в PostgreSQL.
 
+## Структура проекта
+
+```
+.
+├── load/                    # Скрипты для сбора цитат (harvest_*.py)
+├── data/                    # Данные: JSON, TXT, DOC, DOCX файлы
+├── harvest_pipeline.py     # Главный скрипт пайплайна
+├── merge_quotes.py         # Скрипт объединения цитат
+├── import_to_postgres.py   # Скрипт импорта в PostgreSQL
+└── view_db_tables.py       # Скрипт просмотра таблиц БД
+```
+
 ## Установка зависимостей
 
 ```bash
@@ -19,8 +31,10 @@ pip install -r requirements.txt
 ### 1. Сбор цитат с Quotable API
 
 ```bash
-python harvest_quotable.py
+python load/harvest_quotable.py
 ```
+
+**Примечание:** Все harvest скрипты находятся в директории `load/`. Результаты сохраняются в `data/`.
 
 Создаст файл `quotable.json` с цитатами из Quotable API.
 
@@ -35,7 +49,7 @@ python harvest_quotable.py
 ### 2. Сбор цитат с ZenQuotes API
 
 ```bash
-python harvest_zenquotes.py
+python load/harvest_zenquotes.py
 ```
 
 Создаст файл `zenquotes.json` с цитатами из ZenQuotes API.
@@ -48,14 +62,14 @@ python harvest_zenquotes.py
 
 **Настройка количества:**
 ```python
-# В файле harvest_zenquotes.py измените:
+# В файле load/harvest_zenquotes.py измените:
 harvest_zenquotes(max_quotes=1000)  # Вместо 5000
 ```
 
 ### 3. Сбор цитат с Goodreads (веб-скрапинг)
 
 ```bash
-python harvest_goodreads.py
+python load/harvest_goodreads.py
 ```
 
 Создаст файл `goodreads.json` с цитатами с Goodreads.
@@ -71,14 +85,14 @@ python harvest_goodreads.py
 
 **Настройка количества страниц:**
 ```python
-# В файле harvest_goodreads.py измените:
+# В файле load/harvest_goodreads.py измените:
 harvest_goodreads(max_pages=20)  # Вместо 50
 ```
 
 ### 4. Сбор цитат с BrainyQuote (веб-скрапинг)
 
 ```bash
-python harvest_brainyquote.py
+python load/harvest_brainyquote.py
 ```
 
 Создаст файл `brainyquote.json` с цитатами с BrainyQuote.
@@ -90,7 +104,7 @@ python harvest_brainyquote.py
 
 **Настройка тем:**
 ```python
-# В файле harvest_brainyquote.py измените:
+# В файле load/harvest_brainyquote.py измените:
 topics = ["motivational", "wisdom", "success"]  # Добавьте свои темы
 harvest_brainyquote(topics=topics)
 ```
@@ -102,8 +116,8 @@ python merge_quotes.py
 ```
 
 Объединит все JSON файлы (английские: `quotable.json`, `zenquotes.json`, `goodreads.json`, `brainyquote.json`; русские: `citaty_net.json`, `aphorizm_ru.json`, `anecdot_ru.json`, `wikiquote_ru.json`) в:
-- `ALL_QUOTES.json` - объединенный JSON файл
-- `ALL_QUOTES.txt` - текстовый файл для чтения
+- `data/ALL_QUOTES.json` - объединенный JSON файл
+- `data/ALL_QUOTES.txt` - текстовый файл для чтения
 
 **Особенности:**
 - Автоматическая дедупликация по тексту
@@ -114,9 +128,9 @@ python merge_quotes.py
 ```python
 # В файле merge_quotes.py можно изменить:
 merge_quotes(
-    input_pattern="harvest_*.json",  # Паттерн для поиска файлов
-    output_json="MERGED_QUOTES.json",
-    output_txt="MERGED_QUOTES.txt"
+    input_pattern="data/*.json",  # Паттерн для поиска файлов в data/
+    output_json="data/MERGED_QUOTES.json",
+    output_txt="data/MERGED_QUOTES.txt"
 )
 ```
 
@@ -125,7 +139,7 @@ merge_quotes(
 #### 6.1. Citaty.net
 
 ```bash
-python harvest_citaty_net.py
+python load/harvest_citaty_net.py
 ```
 
 Создаст файл `citaty_net.json` с цитатами с Citaty.net.
@@ -138,7 +152,7 @@ python harvest_citaty_net.py
 #### 6.1.1. Citaty.info
 
 ```bash
-python harvest_citaty_info.py
+python load/harvest_citaty_info.py
 ```
 
 Создаст файл `citaty_info.json` с цитатами с Citaty.info.
@@ -151,14 +165,14 @@ python harvest_citaty_info.py
 
 **Настройка количества страниц:**
 ```python
-# В файле harvest_citaty_net.py измените:
+# В файле load/harvest_citaty_net.py измените:
 harvest_citaty_net(max_pages=10)  # Вместо 20
 ```
 
 #### 6.2. Aphorizm.ru
 
 ```bash
-python harvest_aphorizm_ru.py
+python load/harvest_aphorizm_ru.py
 ```
 
 Создаст файл `aphorizm_ru.json` с цитатами с Aphorizm.ru.
@@ -171,14 +185,14 @@ python harvest_aphorizm_ru.py
 
 **Настройка количества страниц:**
 ```python
-# В файле harvest_aphorizm_ru.py измените:
+# В файле load/harvest_aphorizm_ru.py измените:
 harvest_aphorizm_ru(max_pages=10)  # Вместо 20
 ```
 
 #### 6.3. Anecdot.ru/aphorizm
 
 ```bash
-python harvest_anecdot_ru.py
+python load/harvest_anecdot_ru.py
 ```
 
 Создаст файл `anecdot_ru.json` с цитатами с Anecdot.ru/aphorizm.
@@ -195,14 +209,14 @@ python harvest_anecdot_ru.py
 
 **Настройка количества страниц:**
 ```python
-# В файле harvest_anecdot_ru.py измените:
+# В файле load/harvest_anecdot_ru.py измените:
 harvest_anecdot_ru(max_pages=10)  # Вместо 20
 ```
 
 #### 6.4. Wikiquote (русский)
 
 ```bash
-python harvest_wikiquote_ru.py
+python load/harvest_wikiquote_ru.py
 ```
 
 Создаст файл `wikiquote_ru.json` с цитатами с Wikiquote (русский).
@@ -217,7 +231,7 @@ python harvest_wikiquote_ru.py
 
 **Настройка авторов:**
 ```python
-# В файле harvest_wikiquote_ru.py измените:
+# В файле load/harvest_wikiquote_ru.py измените:
 authors = ["Лев Толстой", "Фёдор Достоевский", "Антон Чехов"]
 harvest_wikiquote_ru(authors=authors)
 ```
@@ -225,7 +239,7 @@ harvest_wikiquote_ru(authors=authors)
 #### 6.5. Локальные doc/docx файлы (русский)
 
 ```bash
-python harvest_doc_files.py
+python load/harvest_doc_files.py
 ```
 
 Создаст файл `doc_files.json` с цитатами из локальных файлов.
@@ -261,7 +275,7 @@ python harvest_doc_files.py
 
 **Настройка:**
 ```python
-# В файле harvest_doc_files.py измените:
+# В файле load/harvest_doc_files.py измените:
 harvest_doc_files(
     folder_path="./quotes",  # Путь к папке с файлами
     output_file="my_quotes.json"  # Имя выходного файла
@@ -280,7 +294,7 @@ harvest_doc_files(
 python import_to_postgres.py
 ```
 
-Импортирует цитаты из `ALL_QUOTES.json` в таблицу `quotations` PostgreSQL.
+Импортирует цитаты из `data/ALL_QUOTES.json` в таблицу `quotations` PostgreSQL.
 
 **Опции:**
 ```bash
@@ -299,6 +313,54 @@ python import_to_postgres.py --file custom_quotes.json
 - Дедупликация по `(text_original, language_original)`
 - Применяет строгие фильтры перед импортом
 - Показывает статистику импорта
+
+### 8. Просмотр таблиц базы данных
+
+```bash
+python view_db_tables.py
+```
+
+Показывает список всех таблиц в базе данных с количеством строк и структурой.
+
+**Опции:**
+```bash
+# Показать список всех таблиц с количеством строк
+python view_db_tables.py --count-only
+
+# Показать информацию о конкретной таблице (структура + данные)
+python view_db_tables.py --table quotations
+
+# Показать только структуру таблицы без данных
+python view_db_tables.py --table quotations --count-only
+
+# Показать больше строк из таблицы
+python view_db_tables.py --table quotations --limit 20
+```
+
+**Примеры использования:**
+```bash
+# Просмотр всех таблиц
+python view_db_tables.py
+
+# Просмотр структуры таблицы quotations
+python view_db_tables.py --table quotations --count-only
+
+# Просмотр первых 5 цитат из таблицы
+python view_db_tables.py --table quotations --limit 5
+```
+
+**Особенности:**
+- Автоматически определяет кодировку и правильно отображает русские символы
+- Показывает структуру таблиц (колонки, типы данных, ограничения)
+- Подсчитывает количество строк в каждой таблице
+- Поддерживает просмотр данных из таблиц
+- Работает с переменной окружения `DB_URL` (из `.env` файла)
+
+**Вывод включает:**
+- Список всех таблиц в базе данных
+- Структуру каждой таблицы (колонки, типы, nullable, default значения)
+- Количество строк в каждой таблице
+- Данные из таблиц (при указании `--table`)
 
 ## Автоматизированный пайплайн (рекомендуется)
 
@@ -364,17 +426,17 @@ python import_to_postgres.py --stats
 
 ```bash
 # 1. Собираем английские цитаты
-python harvest_quotable.py
-python harvest_zenquotes.py
-python harvest_goodreads.py
-python harvest_brainyquote.py
+python load/harvest_quotable.py
+python load/harvest_zenquotes.py
+python load/harvest_goodreads.py
+python load/harvest_brainyquote.py
 
 # 2. Собираем русские цитаты
-python harvest_citaty_net.py
-python harvest_aphorizm_ru.py
-python harvest_anecdot_ru.py
-python harvest_wikiquote_ru.py
-python harvest_doc_files.py
+python load/harvest_citaty_net.py
+python load/harvest_aphorizm_ru.py
+python load/harvest_anecdot_ru.py
+python load/harvest_wikiquote_ru.py
+python load/harvest_doc_files.py
 
 # 3. Объединяем все
 python merge_quotes.py
@@ -387,10 +449,10 @@ python import_to_postgres.py --clear
 
 ```bash
 # 1. Собираем английские цитаты
-python harvest_quotable.py      # ~2000 цитат (API, быстро)
-python harvest_zenquotes.py      # До 5000 цитат (API, медленно)
-python harvest_goodreads.py     # Много цитат (веб-скрапинг)
-python harvest_brainyquote.py    # Много цитат (веб-скрапинг)
+python load/harvest_quotable.py      # ~2000 цитат (API, быстро)
+python load/harvest_zenquotes.py      # До 5000 цитат (API, медленно)
+python load/harvest_goodreads.py     # Много цитат (веб-скрапинг)
+python load/harvest_brainyquote.py    # Много цитат (веб-скрапинг)
 
 # 2. Объединяем
 python merge_quotes.py
@@ -405,11 +467,11 @@ python import_to_postgres.py --clear
 
 ```bash
 # 1. Собираем русские цитаты
-python harvest_citaty_net.py
-python harvest_aphorizm_ru.py
-python harvest_anecdot_ru.py
-python harvest_wikiquote_ru.py
-python harvest_doc_files.py
+python load/harvest_citaty_net.py
+python load/harvest_aphorizm_ru.py
+python load/harvest_anecdot_ru.py
+python load/harvest_wikiquote_ru.py
+python load/harvest_doc_files.py
 
 # 2. Объединяем
 python merge_quotes.py
@@ -477,7 +539,7 @@ python load_quotations.py
   - Если возникают таймауты или `ConnectionError`, это может быть из-за блокировки доступа из вашей страны
   - **Решение:** Используйте VPN для обхода блокировки
   - Скрипт автоматически повторяет попытки (3 раза) с увеличенным таймаутом (60s)
-  - Пример: Подключите VPN, затем запустите `python harvest_goodreads.py`
+  - Пример: Подключите VPN, затем запустите `python load/harvest_goodreads.py`
 - **403 Too Many Requests (Wikiquote):**
   - Wikiquote имеет строгие ограничения на частоту запросов
   - Скрипт автоматически ждет 30 секунд при ошибке 403
@@ -497,8 +559,8 @@ python load_quotations.py
 ### Сбор только из API источников (английские)
 
 ```bash
-python harvest_quotable.py
-python harvest_zenquotes.py
+python load/harvest_quotable.py
+python load/harvest_zenquotes.py
 python merge_quotes.py
 python import_to_postgres.py
 ```
@@ -506,11 +568,11 @@ python import_to_postgres.py
 ### Сбор только из веб-скрапинга (русские)
 
 ```bash
-python harvest_citaty_net.py
-python harvest_aphorizm_ru.py
-python harvest_anecdot_ru.py
-python harvest_wikiquote_ru.py
-python harvest_doc_files.py
+python load/harvest_citaty_net.py
+python load/harvest_aphorizm_ru.py
+python load/harvest_anecdot_ru.py
+python load/harvest_wikiquote_ru.py
+python load/harvest_doc_files.py
 python merge_quotes.py
 python import_to_postgres.py
 ```

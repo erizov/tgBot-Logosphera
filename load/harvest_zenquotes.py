@@ -102,7 +102,7 @@ def is_valid_quotation(text: str) -> bool:
 
 def harvest_zenquotes(
     max_quotes: int = 5000,
-    output_file: str = "zenquotes.json"
+    output_file: str = "data/zenquotes.json"
 ) -> List[Dict]:
     """
     Сбор цитат с ZenQuotes API.

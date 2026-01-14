@@ -100,7 +100,7 @@ def is_valid_quotation(text: str) -> bool:
     return True
 
 
-def harvest_quotable(output_file: str = "quotable.json") -> List[Dict]:
+def harvest_quotable(output_file: str = "data/quotable.json") -> List[Dict]:
     """
     Сбор цитат с Quotable API.
 

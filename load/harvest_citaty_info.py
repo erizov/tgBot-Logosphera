@@ -1,6 +1,6 @@
 """
-Сбор цитат с Citaty.net (русский).
-Веб-скрапинг: https://ru.citaty.net
+Сбор цитат с Citaty.info (русский).
+Веб-скрапинг: https://citaty.info/
 """
 
 import requests
@@ -11,6 +11,9 @@ from bs4 import BeautifulSoup
 from tqdm import tqdm
 from typing import List, Dict
 import re
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -18,7 +21,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://ru.citaty.net"
+BASE_URL = "https://citaty.info"
 
 
 def is_valid_quotation(text: str) -> bool:
@@ -75,8 +78,7 @@ def is_valid_quotation(text: str) -> bool:
     month_names = [
         r'\bянварь\b', r'\bфевраль\b', r'\bмарт\b', r'\bапрель\b',
         r'\bмай\b', r'\bиюнь\b', r'\bиюль\b', r'\bавгуст\b',
-        r'\bсентябрь\b', r'\bоктябрь\b', r'\bноябрь\b', r'\bдекабрь\b',
-        r'\bjanuary\b', r'\bfebruary\b', r'\bmarch\b', r'\bapril\b'
+        r'\bсентябрь\b', r'\bоктябрь\b', r'\bноябрь\b', r'\bдекабрь\b'
     ]
     for month in month_names:
         if re.search(month, text, re.IGNORECASE):
@@ -84,8 +86,7 @@ def is_valid_quotation(text: str) -> bool:
 
     # - Театральные ссылки
     theater_keywords = [
-        r'\bакт\b', r'\bсцена\b', r'\bстраница\b', r'\bглава\b',
-        r'\bact\b', r'\bscene\b', r'\bpage\b', r'\bchapter\b'
+        r'\bакт\b', r'\bсцена\b', r'\bстраница\b', r'\bглава\b'
     ]
     for keyword in theater_keywords:
         if re.search(keyword, text, re.IGNORECASE):
@@ -123,12 +124,12 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def harvest_citaty_net(
-    max_pages: int = 50,
-    output_file: str = "citaty_net.json"
+def harvest_citaty_info(
+    max_pages: int = 20,
+    output_file: str = "data/citaty_info.json"
 ) -> List[Dict]:
     """
-    Сбор цитат с Citaty.net.
+    Сбор цитат с Citaty.info.
 
     Args:
         max_pages: Максимальное количество страниц
@@ -139,7 +140,7 @@ def harvest_citaty_net(
     """
     quotes = []
 
-    logger.info(f"Starting Citaty.net harvest (max pages: {max_pages})...")
+    logger.info(f"Starting Citaty.info harvest (max pages: {max_pages})...")
     logger.warning("IMPORTANT: Using 5 second delay between requests!")
 
     headers = {
@@ -148,37 +149,51 @@ def harvest_citaty_net(
                      "Chrome/91.0.4472.124 Safari/537.36"
     }
 
+    # Проверяем доступность сайта
+    logger.info("Checking site availability...")
+    site_available = False
+
     try:
-        with tqdm(total=max_pages, desc="Harvesting Citaty.net") as pbar:
+        test_response = requests.get(
+            BASE_URL, headers=headers, timeout=10, verify=False
+        )
+        if test_response.status_code == 200:
+            site_available = True
+            logger.info(f"Site is available at: {BASE_URL}")
+    except Exception:
+        pass
+
+    if not site_available:
+        logger.error(
+            "Citaty.info is not accessible. Possible reasons:\n"
+            "  1. Site is down or blocked\n"
+            "  2. Network connectivity issues\n"
+            "  3. Firewall/proxy blocking access\n"
+            "\n"
+            "Skipping this source. Try again later or use other sources."
+        )
+        with open(output_file, "w", encoding="utf-8") as f:
+            json.dump([], f, ensure_ascii=False, indent=2)
+        logger.info(f"Saved empty file: {output_file}")
+        return []
+
+    try:
+        with tqdm(total=max_pages, desc="Harvesting Citaty.info") as pbar:
             for page in range(1, max_pages + 1):
                 try:
                     # Пробуем разные варианты URL
                     url_patterns = [
-                        f'{BASE_URL}/tsitaty/?page={page}',
-                        f'{BASE_URL}/tsitaty/page/{page}/',
                         f'{BASE_URL}/?page={page}',
+                        f'{BASE_URL}/page/{page}/',
+                        f'{BASE_URL}/quotes?page={page}',
                     ]
 
                     success = False
                     for url in url_patterns:
                         try:
-                            # Пробуем с проверкой SSL
-                            try:
-                                response = requests.get(
-                                    url, headers=headers, timeout=15, verify=True
-                                )
-                            except requests.exceptions.SSLError:
-                                logger.warning(
-                                    f"SSL verification failed for {url}, "
-                                    "trying without verification"
-                                )
-                                import urllib3
-                                urllib3.disable_warnings(
-                                    urllib3.exceptions.InsecureRequestWarning
-                                )
-                                response = requests.get(
-                                    url, headers=headers, timeout=15, verify=False
-                                )
+                            response = requests.get(
+                                url, headers=headers, timeout=15, verify=False
+                            )
 
                             if response.status_code == 404:
                                 continue
@@ -188,8 +203,8 @@ def harvest_citaty_net(
 
                             # Ищем цитаты
                             quote_elements = soup.find_all(
-                                ['div', 'p', 'blockquote'],
-                                class_=re.compile(r'quote|text')
+                                ['div', 'p', 'blockquote', 'span'],
+                                class_=re.compile(r'quote|text|citata|aphorism')
                             )
                             if not quote_elements:
                                 quote_elements = soup.find_all('blockquote')
@@ -217,46 +232,30 @@ def harvest_citaty_net(
                             continue
 
                         if len(text) >= 20 and is_valid_quotation(text):
-                            # Пробуем извлечь автора
-                            author = None
-                            author_elem = elem.find_next(['span', 'div', 'p'],
-                                                         class_=re.compile(r'author'))
-                            if author_elem:
-                                author = clean_text(author_elem.get_text())
-
                             quotes.append({
                                 "text": text,
-                                "author": author,
-                                "source": "citaty_net",
+                                "author": None,
+                                "source": "citaty.info",
                                 "lang": "ru"
                             })
 
                     pbar.update(1)
-                    pbar.set_postfix({"total": len(quotes)})
-
-                    # Задержка между запросами
+                    pbar.set_postfix({"quotes": len(quotes)})
                     time.sleep(5)
 
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"Error on page {page}: {e}")
-                    time.sleep(10)  # Увеличиваем задержку при ошибке
-                    continue
                 except Exception as e:
-                    logger.error(f"Error parsing page {page}: {e}")
+                    logger.error(f"Error on page {page}: {e}")
                     continue
 
     except Exception as e:
-        logger.error(f"Error in harvest_citaty_net: {e}")
+        logger.error(f"Error in harvest_citaty_info: {e}")
 
-    # Сохраняем в файл
-    if quotes:
-        with open(output_file, "w", encoding="utf-8") as f:
-            json.dump(quotes, f, ensure_ascii=False, indent=2)
-        logger.info(f"Saved {len(quotes)} quotes to {output_file}")
+    with open(output_file, "w", encoding="utf-8") as f:
+        json.dump(quotes, f, ensure_ascii=False, indent=2)
+    logger.info(f"Saved {len(quotes)} quotes to {output_file}")
 
     return quotes
 
 
 if __name__ == "__main__":
-    # РЕКОМЕНДУЕТСЯ НИЗКОЕ КОЛИЧЕСТВО СТРАНИЦ
-    harvest_citaty_net(max_pages=20)
+    harvest_citaty_info()

@@ -1,6 +1,6 @@
 """
-Сбор цитат с Aphorizm.ru (русский).
-Веб-скрапинг: https://aphorizm.ru
+Сбор цитат с Anecdot.ru/aphorizm (русский).
+Веб-скрапинг: https://anecdot.ru/aphorizm/
 """
 
 import requests
@@ -18,7 +18,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-BASE_URL = "https://aphorizm.ru"
+BASE_URL = "https://anecdot.ru/aphorizm"
+# Альтернативные URL на случай недоступности основного
+ALTERNATIVE_URLS = [
+    "http://anecdot.ru/aphorizm",  # HTTP вместо HTTPS
+    "https://www.anecdot.ru/aphorizm",  # С www
+    "http://www.anecdot.ru/aphorizm",  # HTTP с www
+]
 
 
 def is_valid_quotation(text: str) -> bool:
@@ -123,12 +129,12 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def harvest_aphorizm_ru(
+def harvest_anecdot_ru(
     max_pages: int = 50,
-    output_file: str = "aphorizm_ru.json"
+    output_file: str = "data/anecdot_ru.json"
 ) -> List[Dict]:
     """
-    Сбор цитат с Aphorizm.ru.
+    Сбор цитат с Anecdot.ru/aphorizm.
 
     Args:
         max_pages: Максимальное количество страниц
@@ -139,7 +145,7 @@ def harvest_aphorizm_ru(
     """
     quotes = []
 
-    logger.info(f"Starting Aphorizm.ru harvest (max pages: {max_pages})...")
+    logger.info(f"Starting Anecdot.ru harvest (max pages: {max_pages})...")
     logger.warning("IMPORTANT: Using 5 second delay between requests!")
 
     headers = {
@@ -148,42 +154,31 @@ def harvest_aphorizm_ru(
                      "Chrome/91.0.4472.124 Safari/537.36"
     }
 
-    # Начинаем с основных страниц
-    base_urls = [
-        'https://aphorizm.ru/',
-        'https://aphorizm.ru/random/',
-        'https://aphorizm.ru/top/',
-    ]
-    
-    # Альтернативные URL на случай недоступности основного
-    alternative_base_urls = [
-        'http://aphorizm.ru/',  # HTTP вместо HTTPS
-        'https://www.aphorizm.ru/',  # С www
-    ]
-    
-    # Проверяем доступность сайта
+    # Сначала проверяем доступность сайта
     logger.info("Checking site availability...")
     site_available = False
-    working_urls = []
+    working_base_url = BASE_URL
     
-    for test_url in base_urls + alternative_base_urls:
+    for test_url in [BASE_URL] + ALTERNATIVE_URLS:
         try:
             test_response = requests.get(
                 test_url, headers=headers, timeout=10, verify=False
             )
             if test_response.status_code == 200:
                 site_available = True
-                if test_url not in working_urls:
-                    working_urls.append(test_url)
+                working_base_url = test_url
+                logger.info(f"Site is available at: {test_url}")
+                break
         except Exception:
             continue
     
     if not site_available:
         logger.error(
-            "Aphorizm.ru is not accessible. Possible reasons:\n"
+            "Anecdot.ru/aphorizm is not accessible. Possible reasons:\n"
             "  1. Site is down or blocked\n"
             "  2. Network connectivity issues\n"
             "  3. Firewall/proxy blocking access\n"
+            "  4. Site may have changed URL structure\n"
             "\n"
             "Skipping this source. Try again later or use other sources."
         )
@@ -192,115 +187,16 @@ def harvest_aphorizm_ru(
             json.dump([], f, ensure_ascii=False, indent=2)
         logger.info(f"Saved empty file: {output_file}")
         return []
-    
-    # Используем только доступные URL
-    base_urls = working_urls if working_urls else base_urls
-    logger.info(f"Using {len(base_urls)} accessible URL(s)")
 
     try:
-        # Сначала собираем с основных страниц
-        for base_url in base_urls:
-            if len(quotes) >= max_pages * 20:  # Примерно 20 цитат на страницу
-                break
-
-            try:
-                # Пробуем с проверкой SSL
-                try:
-                    response = requests.get(
-                        base_url, headers=headers, timeout=15, verify=True
-                    )
-                except requests.exceptions.SSLError:
-                    logger.warning(
-                        f"SSL verification failed for {base_url}, "
-                        "trying without verification"
-                    )
-                    import urllib3
-                    urllib3.disable_warnings(
-                        urllib3.exceptions.InsecureRequestWarning
-                    )
-                    response = requests.get(
-                        base_url, headers=headers, timeout=15, verify=False
-                    )
-
-                response.raise_for_status()
-                soup = BeautifulSoup(response.text, "html.parser")
-
-                # Различные селекторы для поиска цитат
-                quote_elements = soup.find_all(
-                    ['div', 'p', 'blockquote', 'span'],
-                    class_=re.compile(r'quote|text|aphorism|aphorizm|citata')
-                )
-                if not quote_elements:
-                    quote_elements = soup.find_all('blockquote')
-                if not quote_elements:
-                    quote_elements = soup.find_all('p',
-                                                   string=re.compile(r'.{20,}'))
-                
-                # Если не нашли цитаты, попробуем более широкий поиск
-                if not quote_elements:
-                    # Ищем все элементы с русским текстом
-                    all_elements = soup.find_all(['div', 'p', 'span', 'li', 'td'])
-                    for elem in all_elements:
-                        text = elem.get_text().strip()
-                        if len(text) > 30 and re.search(r'[а-яёА-ЯЁ]', text):
-                            # Проверяем, что это похоже на цитату (не навигация)
-                            if not re.search(r'^(главная|меню|навигация|ссылки|контакты|о сайте)', 
-                                            text, re.IGNORECASE):
-                                quote_elements.append(elem)
-                                if len(quote_elements) >= 50:  # Ограничиваем количество
-                                    break
-                
-                # Если все еще не нашли, логируем для диагностики
-                if not quote_elements:
-                    logger.debug(
-                        f"No quotes found on {base_url}. "
-                        f"Page size: {len(response.text)} bytes. "
-                        f"Title: {soup.title.string if soup.title else 'N/A'}"
-                    )
-
-                for elem in quote_elements:
-                    text = clean_text(elem.get_text())
-
-                    # Проверяем, что это русский текст
-                    if not re.search(r'[а-яёА-ЯЁ]', text):
-                        continue
-
-                    if len(text) >= 20 and is_valid_quotation(text):
-                        quotes.append({
-                            "text": text,
-                            "author": None,
-                            "source": "aphorizm_ru",
-                            "lang": "ru"
-                        })
-
-                time.sleep(5)
-
-            except requests.exceptions.ConnectionError as e:
-                logger.error(
-                    f"Connection error for {base_url}: {e}\n"
-                    "  This might mean:\n"
-                    "  1. Site is down or blocked\n"
-                    "  2. Network connectivity issues\n"
-                    "  3. Firewall/proxy blocking access"
-                )
-                continue
-            except Exception as e:
-                logger.error(f"Error loading from {base_url}: {e}")
-                continue
-
-        # Затем собираем со страниц пагинации
-        with tqdm(total=max_pages, desc="Harvesting Aphorizm.ru") as pbar:
+        with tqdm(total=max_pages, desc="Harvesting Anecdot.ru") as pbar:
             for page in range(1, max_pages + 1):
-                if len(quotes) >= max_pages * 20:
-                    break
-
                 try:
-                    # Пробуем разные варианты URL (используем первый рабочий URL)
-                    working_base = working_urls[0] if working_urls else base_urls[0]
+                    # Пробуем разные варианты URL
                     url_patterns = [
-                        f'{working_base}?page={page}',
-                        f'{working_base}page/{page}/',
-                        f'{working_base}random/?page={page}',
+                        f'{working_base_url}/?page={page}',
+                        f'{working_base_url}/page/{page}/',
+                        f'{working_base_url}/?p={page}',
                     ]
 
                     success = False
@@ -312,6 +208,10 @@ def harvest_aphorizm_ru(
                                     url, headers=headers, timeout=15, verify=True
                                 )
                             except requests.exceptions.SSLError:
+                                logger.warning(
+                                    f"SSL verification failed for {url}, "
+                                    "trying without verification"
+                                )
                                 import urllib3
                                 urllib3.disable_warnings(
                                     urllib3.exceptions.InsecureRequestWarning
@@ -326,12 +226,16 @@ def harvest_aphorizm_ru(
                             response.raise_for_status()
                             soup = BeautifulSoup(response.text, "html.parser")
 
+                            # Ищем цитаты
                             quote_elements = soup.find_all(
                                 ['div', 'p', 'blockquote', 'span'],
                                 class_=re.compile(r'quote|text|aphorism|aphorizm|citata')
                             )
                             if not quote_elements:
                                 quote_elements = soup.find_all('blockquote')
+                            if not quote_elements:
+                                quote_elements = soup.find_all('p',
+                                                               string=re.compile(r'.{20,}'))
 
                             if quote_elements:
                                 success = True
@@ -341,7 +245,13 @@ def harvest_aphorizm_ru(
                             continue
 
                     if not success:
-                        logger.warning(f"No quotes found on page {page}")
+                        logger.warning(
+                            f"No quotes found on page {page}\n"
+                            "  Possible reasons:\n"
+                            "  1. Site structure changed\n"
+                            "  2. Site is down or blocked\n"
+                            "  3. Different URL pattern needed"
+                        )
                         break
 
                     # Обрабатываем найденные цитаты
@@ -356,7 +266,7 @@ def harvest_aphorizm_ru(
                             quotes.append({
                                 "text": text,
                                 "author": None,
-                                "source": "aphorizm_ru",
+                                "source": "anecdot_ru",
                                 "lang": "ru"
                             })
 
@@ -366,13 +276,16 @@ def harvest_aphorizm_ru(
                     # Задержка между запросами
                     time.sleep(5)
 
-                except Exception as e:
+                except requests.exceptions.RequestException as e:
                     logger.error(f"Error on page {page}: {e}")
-                    time.sleep(10)
+                    time.sleep(10)  # Увеличиваем задержку при ошибке
+                    continue
+                except Exception as e:
+                    logger.error(f"Error parsing page {page}: {e}")
                     continue
 
     except Exception as e:
-        logger.error(f"Error in harvest_aphorizm_ru: {e}")
+        logger.error(f"Error in harvest_anecdot_ru: {e}")
 
     # Сохраняем в файл
     if quotes:
@@ -385,4 +298,4 @@ def harvest_aphorizm_ru(
 
 if __name__ == "__main__":
     # РЕКОМЕНДУЕТСЯ НИЗКОЕ КОЛИЧЕСТВО СТРАНИЦ
-    harvest_aphorizm_ru(max_pages=20)
+    harvest_anecdot_ru(max_pages=20)

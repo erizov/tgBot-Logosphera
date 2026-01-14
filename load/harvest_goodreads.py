@@ -102,7 +102,7 @@ def is_valid_quotation(text: str) -> bool:
 
 def harvest_goodreads(
     max_pages: int = 200,
-    output_file: str = "goodreads.json"
+    output_file: str = "data/goodreads.json"
 ) -> List[Dict]:
     """
     Сбор цитат с Goodreads.

@@ -102,7 +102,7 @@ def is_valid_quotation(text: str) -> bool:
 def harvest_forismatic(
     max_quotes: int = 1000,
     languages: List[str] = None,
-    output_file: str = "forismatic.json"
+    output_file: str = "data/forismatic.json"
 ) -> List[Dict]:
     """
     Сбор цитат с Forismatic API.
