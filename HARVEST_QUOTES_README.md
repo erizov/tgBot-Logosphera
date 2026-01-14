@@ -222,6 +222,58 @@ authors = ["Лев Толстой", "Фёдор Достоевский", "Ант
 harvest_wikiquote_ru(authors=authors)
 ```
 
+#### 6.5. Локальные doc/docx файлы (русский)
+
+```bash
+python harvest_doc_files.py
+```
+
+Создаст файл `doc_files.json` с цитатами из локальных файлов.
+
+**Особенности:**
+- Ищет все файлы в текущей папке, начинающиеся с "aph" (например, `aphDop2.doc`, `aphDop3.docx`)
+- Поддерживает форматы `.doc` (старый формат) и `.docx` (современный формат)
+- Автоматически определяет кодировку для `.doc` файлов (UTF-8, CP1251, Windows-1251, CP866, Latin-1)
+- Парсит только текст до слова "Here" (регистронезависимо)
+- Извлекает только цитаты из 1-5 предложений
+- Автоматически извлекает автора из текста (если указан через "—" или "–")
+- Применяет строгие фильтры валидации
+- Дедуплицирует цитаты по тексту
+
+**Требования:**
+- Для `.docx` файлов требуется библиотека `python-docx` (уже в requirements.txt)
+- Для `.doc` файлов скрипт пытается прочитать их как текст с различными кодировками
+- **⚠️ ВАЖНО:** Старые `.doc` файлы (бинарный формат OLE2) не могут быть прочитаны напрямую
+  - Если файл в бинарном формате, скрипт выдаст предупреждение и пропустит его
+  - **Решения для чтения бинарных .doc файлов:**
+    1. **Рекомендуется:** Конвертируйте `.doc` файлы в `.docx` через Microsoft Word или LibreOffice
+    2. **Используйте antiword** (внешняя утилита):
+       - Windows: Скачайте с https://www.winfield.demon.nl/
+       - Linux: `sudo apt-get install antiword` или `sudo yum install antiword`
+       - Скрипт автоматически обнаружит и использует antiword если он установлен
+    3. **Используйте textract** (может иметь проблемы совместимости):
+       ```bash
+       # Требует pip < 24.1 из-за проблем с метаданными библиотеки
+       pip install "pip<24.1" --upgrade
+       pip install textract
+       ```
+       ⚠️ **Примечание:** textract имеет проблемы совместимости с pip>=24.1
+
+**Настройка:**
+```python
+# В файле harvest_doc_files.py измените:
+harvest_doc_files(
+    folder_path="./quotes",  # Путь к папке с файлами
+    output_file="my_quotes.json"  # Имя выходного файла
+)
+```
+
+**Формат файлов:**
+- Файлы должны начинаться с "aph" (например, `aphDop2.doc`, `aphQuotes.docx`)
+- Скрипт парсит весь текст до слова "Here" (регистронезависимо)
+- Цитаты должны быть на русском языке
+- Автор может быть указан через "—" или "–" в конце цитаты
+
 ### 7. Импорт в PostgreSQL
 
 ```bash
@@ -322,6 +374,7 @@ python harvest_citaty_net.py
 python harvest_aphorizm_ru.py
 python harvest_anecdot_ru.py
 python harvest_wikiquote_ru.py
+python harvest_doc_files.py
 
 # 3. Объединяем все
 python merge_quotes.py
@@ -356,6 +409,7 @@ python harvest_citaty_net.py
 python harvest_aphorizm_ru.py
 python harvest_anecdot_ru.py
 python harvest_wikiquote_ru.py
+python harvest_doc_files.py
 
 # 2. Объединяем
 python merge_quotes.py
@@ -456,6 +510,7 @@ python harvest_citaty_net.py
 python harvest_aphorizm_ru.py
 python harvest_anecdot_ru.py
 python harvest_wikiquote_ru.py
+python harvest_doc_files.py
 python merge_quotes.py
 python import_to_postgres.py
 ```
